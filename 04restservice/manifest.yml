@@ -1,0 +1,7 @@
+---
+applications:
+- name: 04restservice
+  path: 04restservice/target/04restservice-0.0.1-SNAPSHOT.war
+  random-route: true
+  memory: 1024M 
+  buildpacks:  - sap_java_buildpack
