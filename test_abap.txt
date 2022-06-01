@@ -1,0 +1,154 @@
+CLASS ltc_vlc_action_yrse DEFINITION FOR TESTING
+  INHERITING FROM zowg_cl_equipment_test_helper
+  DURATION SHORT
+  RISK LEVEL HARMLESS.
+
+  PRIVATE SECTION.
+    CONSTANTS: vguid                 TYPE vlc_guid  VALUE 'TEST123456789',
+               vehicle               TYPE vlc_vhcle VALUE  '1234567890',
+               serial_no             TYPE vlc_vhvin VALUE 'SERIAL_NO',
+               invoice               TYPE vbeln VALUE'INVOICE',
+               ship_to               TYPE kunnr   VALUE 'ship_to',
+               sold_to               TYPE kunnr VALUE'sold_to',
+               sold_to_account_group TYPE ktokd VALUE '0001'.
+    DATA:
+      vehicle_dialog_table TYPE vlcdiavehi_t,
+      vehicle_actdata      TYPE vlcactdata,
+      messages             TYPE vlch_mssg_pt,
+      class_under_test     TYPE REF TO zowg_cl_vlc_action,
+      mock_dao             TYPE REF TO zowg_cl_vlc_action_dao,
+      expected_city_region TYPE zowg_cl_vlc_action=>ty_region_city.
+    METHODS:
+      setup,
+      teardown.
+    METHODS:
+      update_city_region FOR TESTING
+        RAISING zcx_vlc_action_failed,
+      update_sold_to_party FOR TESTING
+        RAISING zcx_vlc_action_failed,
+      customer_not_sold_to FOR TESTING
+        RAISING zcx_vlc_action_failed,
+      no_actdata_error FOR TESTING
+        RAISING zcx_vlc_action_failed.
+
+ENDCLASS.
+
+
+CLASS ltc_vlc_action_yrse IMPLEMENTATION.
+
+  METHOD setup.
+    vehicle_dialog_table = VALUE vlcdiavehi_t( ( vguid = vguid vhvin = serial_no vhcle = vehicle  ) ).
+    vehicle_actdata-actdata_item[] = VALUE #( ( vguid = vguid vhvin = serial_no vhcle = vehicle  zzowgkunnrwe = ship_to ) ).
+    expected_city_region = VALUE #(  region = 'reg' city = 'city' ).
+    mock_dao ?= cl_abap_testdouble=>create( 'zowg_cl_vlc_action_dao' ).
+    class_under_test = NEW zowg_cl_vlc_action_yrse( actions_dao_input = mock_dao ).
+  ENDMETHOD.
+
+  METHOD update_sold_to_party.
+    cl_abap_testdouble=>configure_call( mock_dao )->returning( expected_city_region )->and_expect( )->is_called_times( 1 ).
+    mock_dao->get_city_region_from_ship_to( ship_to_party = ship_to  ).
+    cl_abap_testdouble=>configure_call( mock_dao )->returning( sold_to )->and_expect( )->is_called_times( 1 ).
+    mock_dao->get_sold_to_party_from_ship_to( ship_to ).
+    cl_abap_testdouble=>configure_call( mock_dao )->returning( sold_to_account_group )->and_expect( )->is_called_times( 1 ).
+    mock_dao->get_customer_account_group( sold_to ).
+    class_under_test->zowg_if_vms_action~execute_with_class_exceptions(
+      EXPORTING
+        pi_action_to_be_performed_v = space
+        pi_incoming_action_s        = VALUE #( )
+        pi_elementary_action_s      = VALUE #( )
+        pi_dialogue_allowed_v       = space
+        pi_vlcstatus                = VALUE #( )
+        pi_vlcbapicu                = VALUE #( )
+        pi_rfcdest                  = VALUE #( )
+        pi_vlcbapicu1               = VALUE #( )
+      CHANGING
+        pc_vlcdiavehi               = vehicle_dialog_table
+        pc_vlcactdata_s             = vehicle_actdata
+        pc_vlch_mssg                = messages ).
+    cl_abap_unit_assert=>assert_equals( act = vehicle_actdata-kunnr   exp    = sold_to  ).
+    cl_abap_testdouble=>verify_expectations( mock_dao ).
+  ENDMETHOD.
+
+  METHOD customer_not_sold_to.
+    cl_abap_testdouble=>configure_call( mock_dao )->returning( expected_city_region )->and_expect( )->is_called_times( 1 ).
+    mock_dao->get_city_region_from_ship_to( ship_to_party = ship_to  ).
+    cl_abap_testdouble=>configure_call( mock_dao )->returning( sold_to )->and_expect( )->is_called_times( 1 ).
+    mock_dao->get_sold_to_party_from_ship_to( ship_to ).
+    cl_abap_testdouble=>configure_call( mock_dao )->returning( '0002' )->and_expect( )->is_called_times( 1 ).
+    mock_dao->get_customer_account_group( sold_to ).
+    TRY.
+        class_under_test->zowg_if_vms_action~execute_with_class_exceptions(
+          EXPORTING
+            pi_action_to_be_performed_v = space
+            pi_incoming_action_s        = VALUE #( )
+            pi_elementary_action_s      = VALUE #( )
+            pi_dialogue_allowed_v       = space
+            pi_vlcstatus                = VALUE #( )
+            pi_vlcbapicu                = VALUE #( )
+            pi_rfcdest                  = VALUE #( )
+            pi_vlcbapicu1               = VALUE #( )
+          CHANGING
+            pc_vlcdiavehi               = vehicle_dialog_table
+            pc_vlcactdata_s             = vehicle_actdata
+            pc_vlch_mssg                = messages ).
+        cl_abap_unit_assert=>fail( msg = 'Exception expected' ).
+      CATCH zcx_vlc_action_failed INTO DATA(exception).
+        cl_abap_unit_assert=>assert_bound( exception ).
+    ENDTRY.
+    cl_abap_testdouble=>verify_expectations( mock_dao ).
+  ENDMETHOD.
+
+  METHOD update_city_region.
+    cl_abap_testdouble=>configure_call( mock_dao )->returning( expected_city_region )->and_expect( )->is_called_times( 1 ).
+    mock_dao->get_city_region_from_ship_to( ship_to_party = ship_to  ).
+    cl_abap_testdouble=>configure_call( mock_dao )->returning( sold_to )->and_expect( )->is_called_times( 1 ).
+    mock_dao->get_sold_to_party_from_ship_to( ship_to ).
+    cl_abap_testdouble=>configure_call( mock_dao )->returning( sold_to_account_group )->and_expect( )->is_called_times( 1 ).
+    mock_dao->get_customer_account_group( sold_to ).
+    class_under_test->zowg_if_vms_action~execute_with_class_exceptions(
+      EXPORTING
+        pi_action_to_be_performed_v = space
+        pi_incoming_action_s        = VALUE #( )
+        pi_elementary_action_s      = VALUE #( )
+        pi_dialogue_allowed_v       = space
+        pi_vlcstatus                = VALUE #( )
+        pi_vlcbapicu                = VALUE #( )
+        pi_rfcdest                  = VALUE #( )
+        pi_vlcbapicu1               = VALUE #( )
+      CHANGING
+        pc_vlcdiavehi               = vehicle_dialog_table
+        pc_vlcactdata_s             = vehicle_actdata
+        pc_vlch_mssg                = messages ).
+
+    assert_city_and_region( vehicle_actdata-actdata_item[ 1 ] ).
+    cl_abap_testdouble=>verify_expectations( mock_dao ).
+  ENDMETHOD.
+
+  METHOD no_actdata_error.
+    vehicle_actdata-actdata_item[] = VALUE #( ( vguid = 'other' ) ).
+    TRY.
+        class_under_test->zowg_if_vms_action~execute_with_class_exceptions(
+          EXPORTING
+            pi_action_to_be_performed_v = space
+            pi_incoming_action_s        = VALUE #( )
+            pi_elementary_action_s      = VALUE #( )
+            pi_dialogue_allowed_v       = space
+            pi_vlcstatus                = VALUE #( )
+            pi_vlcbapicu                = VALUE #( )
+            pi_rfcdest                  = VALUE #( )
+            pi_vlcbapicu1               = VALUE #( )
+          CHANGING
+            pc_vlcdiavehi               = vehicle_dialog_table
+            pc_vlcactdata_s             = vehicle_actdata
+            pc_vlch_mssg                = messages ).
+        cl_abap_unit_assert=>fail( msg = 'Exception expected' ).
+      CATCH zcx_vlc_action_failed INTO DATA(exception).
+        cl_abap_unit_assert=>assert_bound( exception ).
+    ENDTRY.
+  ENDMETHOD.
+
+  METHOD teardown.
+    FREE: class_under_test, mock_dao.
+  ENDMETHOD.
+
+ENDCLASS.
